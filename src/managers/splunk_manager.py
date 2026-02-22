@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 import requests
+from requests.auth import HTTPBasicAuth
 
 from src.config import SplunkConfig
 from src.errors.exceptions import AgentError
@@ -21,26 +22,35 @@ class SplunkManager:
 
     def fetch_logs(self, job_id: str, execution_id: str) -> str | None:
         """Fetch logs from Splunk API."""
-        if not self._config.base_url:
-            raise AgentError("SPLUNK_BASE_URL is required for Splunk logs")
-        endpoint_path = self._config.logs_endpoint_template.format(job_id=job_id, execution_id=execution_id)
-        endpoint = f"{self._config.base_url.rstrip('/')}/{endpoint_path.lstrip('/')}"
+        if not self._config.host:
+            raise AgentError("SPLUNK_HOST is required for Splunk logs")
+        endpoint = f"https://{self._config.host}:{self._config.port}/services/search/jobs/export"
         headers = {"Accept": "application/json"}
-        if self._config.token:
-            headers["Authorization"] = f"Bearer {self._config.token}"
+        search_query = (
+            f"search index={self._config.index} sourcetype={self._config.source_type} "
+            f"job_id={job_id} execution_id={execution_id}"
+        )
+        params = {"output_mode": "json", "search": search_query}
         try:
             self._logger.info("splunk_logs_request_started endpoint=%s", endpoint)
-            response = requests.get(endpoint, headers=headers, timeout=self._config.timeout_seconds)
+            response = requests.get(
+                endpoint,
+                headers=headers,
+                params=params,
+                auth=HTTPBasicAuth(self._config.username, self._config.password),
+                timeout=self._config.timeout_seconds,
+                verify=False,
+            )
             if response.status_code == 404:
                 self._logger.info("splunk_logs_not_found endpoint=%s", endpoint)
                 return None
             response.raise_for_status()
-            payload: dict[str, Any] = response.json()
-            logs_value = payload.get("logs")
-            if logs_value is None:
+            text = response.text.strip()
+            if not text:
                 self._logger.info("splunk_logs_empty endpoint=%s", endpoint)
                 return None
-            logs = str(logs_value).strip()
+            # Splunk export can return line-delimited JSON; keep raw text for summarization.
+            logs = text
             self._logger.info("splunk_logs_request_completed endpoint=%s size=%s", endpoint, len(logs))
             return logs if logs else None
         except requests.RequestException as error:
@@ -49,4 +59,3 @@ class SplunkManager:
         except ValueError as error:
             self._logger.exception("splunk_logs_parse_failed endpoint=%s error=%s", endpoint, error)
             raise AgentError(f"Splunk logs response invalid JSON: {error}") from error
-

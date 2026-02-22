@@ -22,14 +22,14 @@ class StorageManager:
         """Fetch lineage payload."""
         return self._storage.fetch_lineage(job_name=job_name)
 
-    def fetch_knowledge(self) -> dict[str, Any]:
-        """Fetch knowledge payload."""
+    def fetch_knowledge(self) -> str:
+        """Fetch knowledge text payload."""
         return self._storage.fetch_knowledge()
 
-    def fetch_solutions(self) -> dict[str, Any]:
-        """Fetch solutions payload."""
+    def fetch_solutions(self) -> str:
+        """Fetch solutions text payload."""
         return self._storage.fetch_solutions()
 
-    def fetch_severity_cases_excel(self) -> bytes | None:
-        """Fetch severity case data Excel bytes."""
-        return self._storage.fetch_severity_cases_excel()
+    def fetch_severity_cases_csv(self) -> bytes | None:
+        """Fetch severity case data CSV bytes."""
+        return self._storage.fetch_severity_cases_csv()

@@ -57,7 +57,7 @@ class Main:
 
         storage = S3Storage(config.storage)
         storage_manager = StorageManager(storage)
-        severity_manager = SeverityManager(storage_manager, config.storage.severity_sheet_name)
+        severity_manager = SeverityManager(storage_manager)
 
         retrieval_backend = FaissBackend(config.retrieval.embedding_model)
         retrieval_manager = RetrievalManager(config.retrieval, retrieval_backend)

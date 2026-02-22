@@ -97,26 +97,29 @@ Fill these keys in `.env`:
 - `LLM_MODEL`
 - `LLM_TEMPERATURE`
 - `LLM_BASE_URL`
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `AWS_REGION`
+- `ECS_ACCESS_KEY`
+- `ECS_SECRET_KEY`
+- `ECS_ENDPOINT`
 - `ECS_BUCKET`
+- `ECS_FOLDER_NAME`
 - `ECS_LOG_KEY_TEMPLATE`
 - `ECS_KNOWLEDGE_KEY`
 - `ECS_SOLUTIONS_KEY`
 - `ECS_LINEAGE_KEY_TEMPLATE`
 - `ECS_SEVERITY_CASES_KEY`
-- `ECS_SEVERITY_SHEET_NAME`
 - `IOMETE_BASE_URL`
+- `IOMETE_DOMAIN_ID`
 - `IOMETE_API_KEY`
 - `IOMETE_TIMEOUT_SECONDS`
 - `IOMETE_LOGS_ENDPOINT_TEMPLATE`
 - `IOMETE_FAILED_JOBS_ENDPOINT_TEMPLATE`
-- `IOMETE_LATEST_FAILED_EXECUTION_ENDPOINT_TEMPLATE`
-- `SPLUNK_BASE_URL`
-- `SPLUNK_TOKEN`
+- `SPLUNK_HOST`
+- `SPLUNK_PORT`
+- `SPLUNK_USERNAME`
+- `SPLUNK_PASSWORD`
+- `SPLUNK_INDEX`
+- `SPLUNK_SOURCE_TYPE`
 - `SPLUNK_TIMEOUT_SECONDS`
-- `SPLUNK_LOGS_ENDPOINT_TEMPLATE`
 - `LANGFUSE_PUBLIC_KEY`
 - `LANGFUSE_SECRET_KEY`
 - `LANGFUSE_HOST`
@@ -159,7 +162,7 @@ Check that:
 - Logs are fetched in order: IOMETE first, Splunk fallback
 - Logs are only kept in-memory in graph state (not persisted)
 - `driver_failure` comes from IOMETE API call
-- `severity` is computed from ECS Excel case sheet (`count==0 low`, `count<5 medium`, else `high`)
+- `severity` is computed from ECS CSV case history (`count==0 low`, `count<5 medium`, else `high`)
 - Traces appear in Langfuse
 - Routing is deterministic from state fields
 - No LLM calls are made by deterministic agents

@@ -101,6 +101,7 @@ class IometeManager:
         """Fetch failed jobs for a time window."""
         endpoint = self._build_endpoint(
             self._config.failed_jobs_endpoint_template,
+            domain_id=self._config.domain_id,
             from_time=from_time,
             to_time=to_time,
         )
@@ -122,8 +123,11 @@ class IometeManager:
 
     def fetch_latest_failed_execution(self, job_id: str) -> FailedExecution | None:
         """Fetch latest failed execution for a job."""
+        if not self._config.domain_id:
+            raise AgentError("IOMETE_DOMAIN_ID is required for latest failed execution lookup")
         endpoint = self._build_endpoint(
-            self._config.latest_failed_execution_endpoint_template,
+            "/api/v1/domains/{domain_id}/jobs/{job_id}/executions/latest-failed",
+            domain_id=self._config.domain_id,
             job_id=job_id,
         )
         payload = self._get_json(endpoint)

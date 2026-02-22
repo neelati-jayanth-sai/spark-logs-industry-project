@@ -19,7 +19,20 @@ class S3Storage:
     def __init__(self, config: StorageConfig, client: BaseClient | None = None) -> None:
         """Initialize adapter with dependency injection."""
         self._config = config
-        self._client = client or boto3.client("s3", region_name=config.region)
+        self._client = client or boto3.client(
+            "s3",
+            endpoint_url=config.endpoint or None,
+            aws_access_key_id=config.access_key or None,
+            aws_secret_access_key=config.secret_key or None,
+        )
+
+    def _full_key(self, key: str) -> str:
+        """Prefix key with ECS folder if configured."""
+        folder = self._config.folder_name.strip().strip("/")
+        clean_key = key.strip().lstrip("/")
+        if not folder:
+            return clean_key
+        return f"{folder}/{clean_key}"
 
     def _read_text(self, key: str) -> str | None:
         """Read text object from S3, returning None if key does not exist."""
@@ -61,22 +74,22 @@ class S3Storage:
     def fetch_logs(self, job_id: str, execution_id: str) -> str | None:
         """Fetch logs from configured path."""
         key = self._config.log_key_template.format(job_id=job_id, execution_id=execution_id)
-        return self._read_text(key)
+        return self._read_text(self._full_key(key))
 
-    def fetch_knowledge(self) -> dict[str, Any]:
-        """Fetch knowledge base JSON."""
-        return self._read_json(self._config.knowledge_key)
+    def fetch_knowledge(self) -> str:
+        """Fetch RCA knowledge text."""
+        return self._read_text(self._full_key(self._config.knowledge_key)) or ""
 
-    def fetch_solutions(self) -> dict[str, Any]:
-        """Fetch solutions JSON."""
-        return self._read_json(self._config.solutions_key)
+    def fetch_solutions(self) -> str:
+        """Fetch solution knowledge text."""
+        return self._read_text(self._full_key(self._config.solutions_key)) or ""
 
     def fetch_lineage(self, job_name: str) -> dict[str, Any] | None:
         """Fetch lineage JSON."""
         key = self._config.lineage_key_template.format(job_name=job_name)
-        payload = self._read_json(key)
+        payload = self._read_json(self._full_key(key))
         return payload if payload else None
 
-    def fetch_severity_cases_excel(self) -> bytes | None:
-        """Fetch severity cases Excel file bytes."""
-        return self._read_bytes(self._config.severity_cases_key)
+    def fetch_severity_cases_csv(self) -> bytes | None:
+        """Fetch severity cases CSV file bytes."""
+        return self._read_bytes(self._full_key(self._config.severity_cases_key))
