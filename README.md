@@ -145,10 +145,10 @@ pytest -q
 Single execution mode:
 
 ```bash
-python -m src.main --mode single --job-id <job_id> --job-name <job_name> --execution-id <execution_id>
+python -m src.main --mode single --job-id <job_id> --job-name <job_name> --run-id <run_id>
 ```
 
-Hourly window mode (fetch failed jobs -> latest failed execution -> run RCA for each):
+Hourly window mode (fetch failed jobs -> latest failed run -> run RCA for each):
 
 ```bash
 python -m src.main --mode hourly --window-minutes 60

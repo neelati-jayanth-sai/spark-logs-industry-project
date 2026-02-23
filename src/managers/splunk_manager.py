@@ -20,7 +20,7 @@ class SplunkManager:
         self._config = config
         self._logger = logging.getLogger("src.managers.splunk")
 
-    def fetch_logs(self, job_id: str, execution_id: str) -> str | None:
+    def fetch_logs(self, job_id: str, run_id: str) -> str | None:
         """Fetch logs from Splunk API."""
         if not self._config.host:
             raise AgentError("SPLUNK_HOST is required for Splunk logs")
@@ -28,7 +28,7 @@ class SplunkManager:
         headers = {"Accept": "application/json"}
         search_query = (
             f"search index={self._config.index} sourcetype={self._config.source_type} "
-            f"job_id={job_id} execution_id={execution_id}"
+            f"job_id={job_id} run_id={run_id}"
         )
         params = {"output_mode": "json", "search": search_query}
         try:

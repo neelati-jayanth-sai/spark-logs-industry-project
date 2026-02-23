@@ -120,7 +120,7 @@ class AppConfig:
                 endpoint=os.getenv("ECS_ENDPOINT", ""),
                 bucket=os.getenv("ECS_BUCKET", ""),
                 folder_name=os.getenv("ECS_FOLDER_NAME", ""),
-                log_key_template=os.getenv("ECS_LOG_KEY_TEMPLATE", "logs/{job_id}/{execution_id}.log"),
+                log_key_template=os.getenv("ECS_LOG_KEY_TEMPLATE", "logs/{job_id}/{run_id}.log"),
                 knowledge_key=os.getenv("ECS_KNOWLEDGE_KEY", "knowledge/knowledge.txt"),
                 solutions_key=os.getenv("ECS_SOLUTIONS_KEY", "solutions/solutions.txt"),
                 lineage_key_template=os.getenv("ECS_LINEAGE_KEY_TEMPLATE", "lineage/{job_name}.json"),
@@ -142,7 +142,7 @@ class AppConfig:
                 timeout_seconds=int(os.getenv("IOMETE_TIMEOUT_SECONDS", "30")),
                 logs_endpoint_template=os.getenv(
                     "IOMETE_LOGS_ENDPOINT_TEMPLATE",
-                    "/api/v1/jobs/{job_id}/executions/{execution_id}/logs",
+                    "/api/v1/jobs/{job_id}/runs/{run_id}/logs",
                 ),
                 failed_jobs_endpoint_template=os.getenv(
                     "IOMETE_FAILED_JOBS_ENDPOINT_TEMPLATE",

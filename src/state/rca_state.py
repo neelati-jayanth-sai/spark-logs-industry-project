@@ -18,7 +18,7 @@ class RCAState(TypedDict):
     solution: str
     category: str
     lineage: dict[str, Any]
-    execution_id: str
+    run_id: str
     start_time: str
     end_time: str
     status: str
@@ -40,7 +40,7 @@ class RCAStateFactory:
     """Factory and immutable update helpers for RCA state."""
 
     @classmethod
-    def create_initial(cls, job_id: str, job_name: str, execution_id: str, start_time: str) -> RCAState:
+    def create_initial(cls, job_id: str, job_name: str, run_id: str, start_time: str) -> RCAState:
         """Create initial graph state."""
         return RCAState(
             job_id=job_id,
@@ -51,7 +51,7 @@ class RCAStateFactory:
             solution="",
             category="",
             lineage={},
-            execution_id=execution_id,
+            run_id=run_id,
             start_time=start_time,
             end_time="",
             status="running",
@@ -89,7 +89,7 @@ class RCAStateValidator:
         "solution",
         "category",
         "lineage",
-        "execution_id",
+        "run_id",
         "start_time",
         "end_time",
         "status",

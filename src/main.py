@@ -96,21 +96,21 @@ class Main:
         parser.add_argument("--mode", choices=["single", "hourly"], default="single")
         parser.add_argument("--job-id")
         parser.add_argument("--job-name")
-        parser.add_argument("--execution-id")
+        parser.add_argument("--run-id")
         parser.add_argument("--window-minutes", type=int)
         args = parser.parse_args()
 
         runtime = cls.build_components()
         if args.mode == "single":
-            if not args.job_id or not args.job_name or not args.execution_id:
-                raise ValueError("--job-id, --job-name, --execution-id are required in single mode")
+            if not args.job_id or not args.job_name or not args.run_id:
+                raise ValueError("--job-id, --job-name, --run-id are required in single mode")
             logging.getLogger("src.main").info(
-                "cli_execution_started mode=single job_id=%s job_name=%s execution_id=%s",
+                "cli_execution_started mode=single job_id=%s job_name=%s run_id=%s",
                 args.job_id,
                 args.job_name,
-                args.execution_id,
+                args.run_id,
             )
-            result = runtime.engine.run(job_id=args.job_id, job_name=args.job_name, execution_id=args.execution_id)
+            result = runtime.engine.run(job_id=args.job_id, job_name=args.job_name, run_id=args.run_id)
             logging.getLogger("src.main").info("cli_execution_completed mode=single status=%s", result["status"])
             print(json.dumps(result, indent=2))
             return
@@ -131,21 +131,21 @@ class Main:
         jobs_failed_due_to_driver_issues = 0
         jobs_without_logs_in_sources = 0
         for failed_job in failed_jobs:
-            latest_failed_execution = runtime.iomete_manager.fetch_latest_failed_execution(job_id=failed_job.job_id)
-            if latest_failed_execution is None:
-                logger.info("hourly_job_skipped job_id=%s reason=no_failed_execution", failed_job.job_id)
+            latest_failed_run = runtime.iomete_manager.fetch_latest_failed_run(job_id=failed_job.job_id)
+            if latest_failed_run is None:
+                logger.info("hourly_job_skipped job_id=%s reason=no_failed_run", failed_job.job_id)
                 continue
             logger.info(
-                "hourly_job_processing job_id=%s job_name=%s execution_id=%s",
+                "hourly_job_processing job_id=%s job_name=%s run_id=%s",
                 failed_job.job_id,
                 failed_job.job_name,
-                latest_failed_execution.execution_id,
+                latest_failed_run.run_id,
             )
             try:
                 state = runtime.engine.run(
                     job_id=failed_job.job_id,
                     job_name=failed_job.job_name,
-                    execution_id=latest_failed_execution.execution_id,
+                    run_id=latest_failed_run.run_id,
                 )
                 if state["log_source"] == "iomete":
                     logs_fetched_from_iomete += 1
@@ -159,7 +159,7 @@ class Main:
                 results.append(
                     {
                         "job_id": failed_job.job_id,
-                        "run_id": latest_failed_execution.execution_id,
+                        "run_id": latest_failed_run.run_id,
                         "job_name": failed_job.job_name,
                         "status": "processed",
                         "RCA_Solution": [
@@ -177,15 +177,15 @@ class Main:
                 )
             except Exception as error:  # noqa: BLE001
                 logger.exception(
-                    "hourly_job_processing_failed job_id=%s execution_id=%s error=%s",
+                    "hourly_job_processing_failed job_id=%s run_id=%s error=%s",
                     failed_job.job_id,
-                    latest_failed_execution.execution_id,
+                    latest_failed_run.run_id,
                     error,
                 )
                 results.append(
                     {
                         "job_id": failed_job.job_id,
-                        "run_id": latest_failed_execution.execution_id,
+                        "run_id": latest_failed_run.run_id,
                         "job_name": failed_job.job_name,
                         "status": "failed",
                         "RCA_Solution": [],

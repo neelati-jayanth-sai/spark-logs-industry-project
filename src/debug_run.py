@@ -2,10 +2,10 @@
 
 Examples:
     python -m src.debug_run iomete failed-jobs --from-time 2026-02-22T00:00:00Z --to-time 2026-02-22T01:00:00Z
-    python -m src.debug_run iomete latest-failed-execution --job-id job_123
-    python -m src.debug_run iomete logs --job-id job_123 --execution-id run_123
-    python -m src.debug_run iomete driver-failure --job-id job_123 --execution-id run_123
-    python -m src.debug_run splunk logs --job-id job_123 --execution-id run_123
+    python -m src.debug_run iomete latest-failed-run --job-id job_123
+    python -m src.debug_run iomete logs --job-id job_123 --run-id run_123
+    python -m src.debug_run iomete driver-failure --job-id job_123 --run-id run_123
+    python -m src.debug_run splunk logs --job-id job_123 --run-id run_123
     python -m src.debug_run storage knowledge
     python -m src.debug_run storage solutions
     python -m src.debug_run storage severity-csv
@@ -62,16 +62,16 @@ class DebugRun:
             data = self._iomete_manager.fetch_failed_jobs(from_time=args.from_time, to_time=args.to_time)
             self._print([{"job_id": item.job_id, "job_name": item.job_name} for item in data])
             return
-        if args.action == "latest-failed-execution":
-            data = self._iomete_manager.fetch_latest_failed_execution(job_id=args.job_id)
-            self._print({"execution_id": data.execution_id} if data else None)
+        if args.action == "latest-failed-run":
+            data = self._iomete_manager.fetch_latest_failed_run(job_id=args.job_id)
+            self._print({"run_id": data.run_id} if data else None)
             return
         if args.action == "logs":
-            data = self._iomete_manager.fetch_logs(job_id=args.job_id, execution_id=args.execution_id)
+            data = self._iomete_manager.fetch_logs(job_id=args.job_id, run_id=args.run_id)
             self._print({"logs": data})
             return
         if args.action == "driver-failure":
-            data = self._iomete_manager.detect_driver_failure(job_id=args.job_id, execution_id=args.execution_id)
+            data = self._iomete_manager.detect_driver_failure(job_id=args.job_id, run_id=args.run_id)
             self._print({"driver_failure": data})
             return
         raise ValueError(f"Unsupported iomete action: {args.action}")
@@ -79,7 +79,7 @@ class DebugRun:
     def _run_splunk(self, args: argparse.Namespace) -> None:
         """Run Splunk manager action."""
         if args.action == "logs":
-            data = self._splunk_manager.fetch_logs(job_id=args.job_id, execution_id=args.execution_id)
+            data = self._splunk_manager.fetch_logs(job_id=args.job_id, run_id=args.run_id)
             self._print({"logs": data})
             return
         raise ValueError(f"Unsupported splunk action: {args.action}")
@@ -129,20 +129,20 @@ def build_parser() -> argparse.ArgumentParser:
     iomete_failed = iomete_sub.add_parser("failed-jobs")
     iomete_failed.add_argument("--from-time", required=True)
     iomete_failed.add_argument("--to-time", required=True)
-    iomete_latest = iomete_sub.add_parser("latest-failed-execution")
+    iomete_latest = iomete_sub.add_parser("latest-failed-run")
     iomete_latest.add_argument("--job-id", required=True)
     iomete_logs = iomete_sub.add_parser("logs")
     iomete_logs.add_argument("--job-id", required=True)
-    iomete_logs.add_argument("--execution-id", required=True)
+    iomete_logs.add_argument("--run-id", required=True)
     iomete_driver = iomete_sub.add_parser("driver-failure")
     iomete_driver.add_argument("--job-id", required=True)
-    iomete_driver.add_argument("--execution-id", required=True)
+    iomete_driver.add_argument("--run-id", required=True)
 
     splunk = sub.add_parser("splunk")
     splunk_sub = splunk.add_subparsers(dest="action", required=True)
     splunk_logs = splunk_sub.add_parser("logs")
     splunk_logs.add_argument("--job-id", required=True)
-    splunk_logs.add_argument("--execution-id", required=True)
+    splunk_logs.add_argument("--run-id", required=True)
 
     storage = sub.add_parser("storage")
     storage_sub = storage.add_subparsers(dest="action", required=True)

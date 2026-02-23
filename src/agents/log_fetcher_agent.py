@@ -22,19 +22,19 @@ class LogFetcherAgent(BaseAgent):
         """Fetch logs and update state."""
         try:
             self._logger.info(
-                "log_fetch_started job_id=%s execution_id=%s source_order=iomete_then_splunk",
+                "log_fetch_started job_id=%s run_id=%s source_order=iomete_then_splunk",
                 state["job_id"],
-                state["execution_id"],
+                state["run_id"],
             )
-            logs = self._iomete_manager.fetch_logs(state["job_id"], state["execution_id"])
+            logs = self._iomete_manager.fetch_logs(state["job_id"], state["run_id"])
             source = "iomete"
             if not logs:
                 self._logger.info(
-                    "iomete_logs_unavailable job_id=%s execution_id=%s fallback=splunk",
+                    "iomete_logs_unavailable job_id=%s run_id=%s fallback=splunk",
                     state["job_id"],
-                    state["execution_id"],
+                    state["run_id"],
                 )
-                logs = self._splunk_manager.fetch_logs(state["job_id"], state["execution_id"])
+                logs = self._splunk_manager.fetch_logs(state["job_id"], state["run_id"])
                 source = "splunk"
             logs = logs or ""
             result = AgentResult(
@@ -44,9 +44,9 @@ class LogFetcherAgent(BaseAgent):
                 meta={},
             )
             self._logger.info(
-                "log_fetch_completed job_id=%s execution_id=%s logs_found=%s source=%s persisted=%s",
+                "log_fetch_completed job_id=%s run_id=%s logs_found=%s source=%s persisted=%s",
                 state["job_id"],
-                state["execution_id"],
+                state["run_id"],
                 bool(logs),
                 source if logs else "none",
                 False,

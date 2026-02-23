@@ -20,18 +20,18 @@ class DriverFailureAgent(BaseAgent):
         """Detect driver failure deterministically."""
         try:
             self._logger.info(
-                "driver_failure_check_started job_id=%s execution_id=%s",
+                "driver_failure_check_started job_id=%s run_id=%s",
                 state["job_id"],
-                state["execution_id"],
+                state["run_id"],
             )
             failure = self._iomete_manager.detect_driver_failure(
                 job_id=state["job_id"],
-                execution_id=state["execution_id"],
+                run_id=state["run_id"],
             )
             self._logger.info(
-                "driver_failure_check_completed job_id=%s execution_id=%s driver_failure=%s",
+                "driver_failure_check_completed job_id=%s run_id=%s driver_failure=%s",
                 state["job_id"],
-                state["execution_id"],
+                state["run_id"],
                 failure,
             )
             result = AgentResult(

@@ -8,7 +8,7 @@ from typing import Any
 import requests
 
 from src.config import IometeConfig
-from src.domain.models import FailedExecution, FailedJob
+from src.domain.models import FailedJob, FailedRun
 from src.errors.exceptions import AgentError
 
 
@@ -50,12 +50,12 @@ class IometeManager:
             self._logger.exception("iomete_response_parse_failed endpoint=%s error=%s", endpoint, error)
             raise AgentError(f"IOMETE API returned invalid JSON: {error}") from error
 
-    def detect_driver_failure(self, job_id: str, execution_id: str) -> bool:
+    def detect_driver_failure(self, job_id: str, run_id: str) -> bool:
         """Call IOMETE API to determine driver failure status."""
         endpoint = self._build_endpoint(
-            "/api/v1/jobs/{job_id}/executions/{execution_id}/driver-failure",
+            "/api/v1/jobs/{job_id}/runs/{run_id}/driver-failure",
             job_id=job_id,
-            execution_id=execution_id,
+            run_id=run_id,
         )
         payload = self._get_json(endpoint)
         if "driver_failure" not in payload:
@@ -68,12 +68,12 @@ class IometeManager:
         )
         return result
 
-    def fetch_logs(self, job_id: str, execution_id: str) -> str | None:
+    def fetch_logs(self, job_id: str, run_id: str) -> str | None:
         """Fetch logs from IOMETE API."""
         endpoint = self._build_endpoint(
             self._config.logs_endpoint_template,
             job_id=job_id,
-            execution_id=execution_id,
+            run_id=run_id,
         )
         try:
             self._logger.info("iomete_logs_request_started endpoint=%s", endpoint)
@@ -121,21 +121,21 @@ class IometeManager:
         self._logger.info("iomete_failed_jobs_resolved from=%s to=%s count=%s", from_time, to_time, len(results))
         return results
 
-    def fetch_latest_failed_execution(self, job_id: str) -> FailedExecution | None:
-        """Fetch latest failed execution for a job."""
+    def fetch_latest_failed_run(self, job_id: str) -> FailedRun | None:
+        """Fetch latest failed run for a job."""
         if not self._config.domain_id:
-            raise AgentError("IOMETE_DOMAIN_ID is required for latest failed execution lookup")
+            raise AgentError("IOMETE_DOMAIN_ID is required for latest failed run lookup")
         endpoint = self._build_endpoint(
-            "/api/v1/domains/{domain_id}/jobs/{job_id}/executions/latest-failed",
+            "/api/v1/domains/{domain_id}/jobs/{job_id}/runs/latest-failed",
             domain_id=self._config.domain_id,
             job_id=job_id,
         )
         payload = self._get_json(endpoint)
-        raw_execution_id = payload.get("execution_id")
-        if raw_execution_id is None:
+        raw_run_id = payload.get("run_id", payload.get("execution_id"))
+        if raw_run_id is None:
             return None
-        execution_id = str(raw_execution_id).strip()
-        if not execution_id:
+        run_id = str(raw_run_id).strip()
+        if not run_id:
             return None
-        self._logger.info("iomete_latest_failed_execution_resolved job_id=%s execution_id=%s", job_id, execution_id)
-        return FailedExecution(execution_id=execution_id)
+        self._logger.info("iomete_latest_failed_run_resolved job_id=%s run_id=%s", job_id, run_id)
+        return FailedRun(run_id=run_id)

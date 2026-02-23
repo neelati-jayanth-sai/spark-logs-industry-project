@@ -71,9 +71,9 @@ class S3Storage:
         except BotoCoreError as error:
             raise StorageError(f"S3 core failure while reading bytes {key}: {error}") from error
 
-    def fetch_logs(self, job_id: str, execution_id: str) -> str | None:
+    def fetch_logs(self, job_id: str, run_id: str) -> str | None:
         """Fetch logs from configured path."""
-        key = self._config.log_key_template.format(job_id=job_id, execution_id=execution_id)
+        key = self._config.log_key_template.format(job_id=job_id, run_id=run_id)
         return self._read_text(self._full_key(key))
 
     def fetch_knowledge(self) -> str:

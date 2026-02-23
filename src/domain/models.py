@@ -78,7 +78,7 @@ class FailedJob:
 
 
 @dataclass(frozen=True)
-class FailedExecution:
-    """Failed execution descriptor for a job."""
+class FailedRun:
+    """Failed run descriptor for a job."""
 
-    execution_id: str
+    run_id: str

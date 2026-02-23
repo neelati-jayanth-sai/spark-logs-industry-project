@@ -19,19 +19,19 @@ class RCAEngine:
         self._callbacks = callbacks or []
         self._logger = logging.getLogger("src.system.engine")
 
-    def run(self, job_id: str, job_name: str, execution_id: str) -> RCAState:
+    def run(self, job_id: str, job_name: str, run_id: str) -> RCAState:
         """Create state, execute graph, and return terminal state."""
         self._logger.info(
-            "engine_run_started job_id=%s job_name=%s execution_id=%s",
+            "engine_run_started job_id=%s job_name=%s run_id=%s",
             job_id,
             job_name,
-            execution_id,
+            run_id,
         )
         start_time = TimeUtils.utc_now_iso()
         state = RCAStateFactory.create_initial(
             job_id=job_id,
             job_name=job_name,
-            execution_id=execution_id,
+            run_id=run_id,
             start_time=start_time,
         )
         RCAStateValidator.validate(state)
@@ -44,9 +44,9 @@ class RCAEngine:
             )
             RCAStateValidator.validate(completed)
             self._logger.info(
-                "engine_run_completed job_id=%s execution_id=%s status=%s errors=%s",
+                "engine_run_completed job_id=%s run_id=%s status=%s errors=%s",
                 job_id,
-                execution_id,
+                run_id,
                 completed["status"],
                 len(completed["errors"]),
             )
@@ -62,9 +62,9 @@ class RCAEngine:
             )
             RCAStateValidator.validate(failed)
             self._logger.exception(
-                "engine_run_failed job_id=%s execution_id=%s error=%s",
+                "engine_run_failed job_id=%s run_id=%s error=%s",
                 job_id,
-                execution_id,
+                run_id,
                 error,
             )
             raise GraphError(f"RCA engine execution failed: {error}") from error

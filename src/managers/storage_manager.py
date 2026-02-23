@@ -14,9 +14,9 @@ class StorageManager:
         """Initialize with storage adapter."""
         self._storage = storage
 
-    def fetch_logs(self, job_id: str, execution_id: str) -> str | None:
+    def fetch_logs(self, job_id: str, run_id: str) -> str | None:
         """Fetch raw logs."""
-        return self._storage.fetch_logs(job_id=job_id, execution_id=execution_id)
+        return self._storage.fetch_logs(job_id=job_id, run_id=run_id)
 
     def fetch_lineage(self, job_name: str) -> dict[str, Any] | None:
         """Fetch lineage payload."""
