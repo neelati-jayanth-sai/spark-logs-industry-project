@@ -53,38 +53,65 @@ class RCAGraphBuilder:
         graph.add_conditional_edges(
             "log_fetcher",
             self._route_after_log_fetcher,
-            {"summarizer": "summarizer", "driver_failure": "driver_failure"},
         )
-        graph.add_edge("summarizer", "lineage")
+        graph.add_conditional_edges(
+            "summarizer",
+            self._route_to_lineage,
+        )
         graph.add_conditional_edges(
             "driver_failure",
             self._route_after_driver_failure,
-            {"rca": "rca", "lineage": "lineage"},
         )
         graph.add_conditional_edges(
             "lineage",
             self._route_after_lineage,
-            {"rca": "rca", "category": "category"},
         )
-        graph.add_edge("category", "rca")
-        graph.add_edge("rca", "solution")
+        graph.add_conditional_edges(
+            "category",
+            self._route_to_rca,
+        )
+        graph.add_conditional_edges(
+            "rca",
+            self._route_to_solution,
+        )
         graph.add_edge("solution", END)
         return graph.compile()
 
     @classmethod
-    def _route_after_log_fetcher(cls, state: RCAState) -> str:
+    def _route_after_log_fetcher(cls, state: dict[str, Any] | RCAState) -> str:
         """Rule A: branch based on log existence."""
-        return "summarizer" if bool(state["logs"]) else "driver_failure"
+        if state.get("status") == "failed":
+            return END
+        return "summarizer" if bool(state.get("logs")) else "driver_failure"
 
     @classmethod
-    def _route_after_driver_failure(cls, state: RCAState) -> str:
+    def _route_after_driver_failure(cls, state: dict[str, Any] | RCAState) -> str:
         """Rule B: mandatory shortcut when logs missing and driver failure is true."""
-        if not state["logs"] and state["driver_failure"]:
+        if state.get("status") == "failed":
+            return END
+        if not state.get("logs") and state.get("driver_failure"):
             return "rca"
         return "lineage"
 
     @classmethod
-    def _route_after_lineage(cls, state: RCAState) -> str:
+    def _route_after_lineage(cls, state: dict[str, Any] | RCAState) -> str:
         """Rule C: branch based on category availability."""
-        return "rca" if bool(state["category"]) else "category"
+        if state.get("status") == "failed":
+            return END
+        return "rca" if bool(state.get("category")) else "category"
+
+    @classmethod
+    def _route_to_lineage(cls, state: dict[str, Any] | RCAState) -> str:
+        """Fail-safe route to lineage."""
+        return END if state.get("status") == "failed" else "lineage"
+
+    @classmethod
+    def _route_to_rca(cls, state: dict[str, Any] | RCAState) -> str:
+        """Fail-safe route to rca."""
+        return END if state.get("status") == "failed" else "rca"
+
+    @classmethod
+    def _route_to_solution(cls, state: dict[str, Any] | RCAState) -> str:
+        """Fail-safe route to solution."""
+        return END if state.get("status") == "failed" else "solution"
 

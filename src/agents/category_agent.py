@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from src.agents.base_agent import BaseAgent
 from src.llm.structured_output import StructuredAgentOutput
 from src.managers.llm_manager import LLMManager
-from src.state.rca_state import RCAState, RCAStateFactory
+from src.state.rca_state import RCAState
 
 
 class CategoryAgent(BaseAgent):
@@ -16,8 +18,8 @@ class CategoryAgent(BaseAgent):
         super().__init__(name="category")
         self._llm_manager = llm_manager
 
-    def run(self, state: RCAState) -> RCAState:
-        """Generate category from summary/root cause."""
+    def run(self, state: RCAState) -> dict[str, Any]:
+        """Generate category from summary/root cause and return partial state update."""
         try:
             result = self._llm_manager.invoke_structured(
                 prompt_key="category",
@@ -25,8 +27,8 @@ class CategoryAgent(BaseAgent):
                 output_schema=StructuredAgentOutput,
             )
             category = str(result.data.get("category", ""))
-            updated = RCAStateFactory.clone_with_updates(state, {"category": category})
-            return self._append_history(updated, result)
+            partial_update = {"category": category}
+            return self._append_history(state, result, partial_state=partial_update)
         except Exception as error:  # noqa: BLE001
             wrapped = self._wrap_exception("failed to classify category", error)
             return self._attach_error(state, wrapped)
