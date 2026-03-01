@@ -7,8 +7,8 @@ from io import BytesIO
 
 import pandas as pd
 
-from src.errors.exceptions import AgentError
-from src.clients.storage_client import StorageClient
+from errors.exceptions import AgentError
+from clients.storage_client import StorageClient
 
 
 class SeverityClient:

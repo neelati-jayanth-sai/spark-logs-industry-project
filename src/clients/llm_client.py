@@ -6,9 +6,9 @@ from typing import Any, Type
 
 from pydantic import BaseModel
 
-from src.schemas.models import AgentResult
-from src.errors.exceptions import LLMError
-from src.llm.prompts import PromptRegistry
+from schemas.models import AgentResult
+from errors.exceptions import LLMError
+from llm.prompts import PromptRegistry
 
 
 class LLMClient:

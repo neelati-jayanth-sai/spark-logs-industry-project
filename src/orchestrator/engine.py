@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from src.errors.exceptions import GraphError
-from src.state.rca_state import RCAState, RCAStateValidator
-from src.utils.time_utils import TimeUtils
+from errors.exceptions import GraphError
+from state.rca_state import RCAState, RCAStateValidator
+from utils.time_utils import TimeUtils
 
 
 class RCAEngine:
@@ -59,8 +59,8 @@ class RCAEngine:
         try:
             callbacks = self._callbacks.copy()
             if self._use_telemetry:
-                from src.telemetry.tracers import LangfuseTracerFactory
-                from src.config import AppConfig
+                from telemetry.tracers import LangfuseTracerFactory
+                from config import AppConfig
                 
                 # Create a localized langfuse callback for this execution
                 # using run_id as the session_id to group everything.

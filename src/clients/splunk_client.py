@@ -8,8 +8,8 @@ from typing import Any
 import requests
 from requests.auth import HTTPBasicAuth
 
-from src.config import SplunkConfig
-from src.errors.exceptions import AgentError
+from config import SplunkConfig
+from errors.exceptions import AgentError
 
 
 class SplunkClient:

@@ -7,9 +7,9 @@ from typing import Any
 
 import requests
 
-from src.config import IometeConfig
-from src.schemas.models import FailedJob, FailedRun
-from src.errors.exceptions import AgentError
+from config import IometeConfig
+from schemas.models import FailedJob, FailedRun
+from errors.exceptions import AgentError
 
 
 class IometeClient:
@@ -139,3 +139,90 @@ class IometeClient:
             return None
         self._logger.info("iomete_latest_failed_run_resolved job_id=%s run_id=%s", job_id, run_id)
         return FailedRun(run_id=run_id)
+
+    async def fetch_failed_jobs_with_runs_async(self, from_time: str, to_time: str) -> list[tuple[FailedJob, FailedRun]]:
+        """Fetch all jobs, then concurrently find latest failed runs for each."""
+        try:
+            import aiohttp
+            import asyncio
+            from datetime import datetime
+        except ImportError as e:
+            self._logger.error("aiohttp required for async fetch. Please install it.")
+            raise AgentError("Missing async dependencies") from e
+
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+            jobs_endpoint = self._config.base_url.rstrip("/") + "/api/v1/jobs"
+            self._logger.info("iomete_fetch_all_jobs_started endpoint=%s", jobs_endpoint)
+            
+            async with session.get(jobs_endpoint, headers=self._headers()) as resp:
+                if resp.status == 404:
+                    jobs_endpoint = self._build_endpoint("/api/v1/domains/{domain_id}/jobs", domain_id=self._config.domain_id)
+                    async with session.get(jobs_endpoint, headers=self._headers()) as resp2:
+                        resp2.raise_for_status()
+                        jobs_payload = await resp2.json()
+                else:
+                    resp.raise_for_status()
+                    jobs_payload = await resp.json()
+                    
+            jobs = jobs_payload if isinstance(jobs_payload, list) else jobs_payload.get("jobs", [])
+            self._logger.info("iomete_fetch_all_jobs_completed count=%s", len(jobs))
+            
+            if not jobs:
+                return []
+
+            semaphore = asyncio.Semaphore(100)
+            
+            async def _process_single_job(job: dict) -> tuple[FailedJob, FailedRun] | None:
+                async with semaphore:
+                    job_id = job.get("id", job.get("job_id"))
+                    job_name = job.get("name", job.get("job_name", "Unnamed"))
+                    if not job_id:
+                        return None
+                        
+                    runs_endpoint = self._config.base_url.rstrip("/") + f"/api/v1/jobs/{job_id}/runs?status=&start={from_time}&end={to_time}"
+                    
+                    try:
+                        async with session.get(runs_endpoint, headers=self._headers()) as r:
+                            if r.status != 200:
+                                return None
+                            runs_payload = await r.json()
+                    except Exception:
+                        return None
+                        
+                    runs = runs_payload if isinstance(runs_payload, list) else runs_payload.get("runs", [])
+                    if not runs:
+                        return None
+                        
+                    runs_with_time = []
+                    for run in runs:
+                        term_time_str = run.get("terminationTime")
+                        if term_time_str:
+                            try:
+                                dt = datetime.fromisoformat(term_time_str.replace("Z", "+00:00"))
+                                runs_with_time.append((run, dt))
+                            except Exception:
+                                continue
+                                
+                    if not runs_with_time:
+                        return None
+                        
+                    runs_with_time.sort(key=lambda x: x[1], reverse=True)
+                    latest_run, _ = runs_with_time[0]
+                    
+                    run_id = latest_run.get("id", latest_run.get("run_id"))
+                    driver_status = latest_run.get("driverStatus", latest_run.get("status", ""))
+                    
+                    if driver_status in ["FAILED", "ABORTED"] and run_id:
+                        return FailedJob(job_id=job_id, job_name=job_name), FailedRun(run_id=run_id)
+                    return None
+
+            tasks = [_process_single_job(job) for job in jobs]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            valid_results = []
+            for res in results:
+                if isinstance(res, tuple) and len(res) == 2:
+                    valid_results.append(res)
+                    
+            self._logger.info("iomete_failed_jobs_resolved from=%s to=%s count=%s", from_time, to_time, len(valid_results))
+            return valid_results

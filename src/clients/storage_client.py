@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.storage.s3_storage import S3Storage
+from storage.s3_storage import S3Storage
 
 
 class StorageClient:

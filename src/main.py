@@ -8,29 +8,29 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 
-from src.agents.category_agent import CategoryAgent
-from src.agents.driver_failure_agent import DriverFailureAgent
-from src.agents.lineage_agent import LineageAgent
-from src.agents.log_fetcher_agent import LogFetcherAgent
-from src.agents.rca_agent import RCAAgent
-from src.agents.solution_agent import SolutionAgent
-from src.agents.summarizer_agent import SummarizerAgent
-from src.config import AppConfig
-from src.orchestrator.rca_graph import RCAGraphBuilder
-from src.llm.chat_model import ChatModelFactory
-from src.llm.prompts import PromptRegistry
-from src.clients.iomete_client import IometeClient
-from src.clients.llm_client import LLMClient
-from src.clients.retrieval_client import RetrievalClient
-from src.clients.severity_client import SeverityClient
-from src.clients.splunk_client import SplunkClient
-from src.clients.storage_client import StorageClient
-from src.retrieval.faiss_backend import FaissBackend
-from src.storage.s3_storage import S3Storage
-from src.orchestrator.engine import RCAEngine
-from src.telemetry.tracers import LangfuseTracerFactory
-from src.utils.logging_utils import LoggingUtils
-from src.utils.time_utils import TimeUtils
+from agents.category_agent import CategoryAgent
+from agents.driver_failure_agent import DriverFailureAgent
+from agents.lineage_agent import LineageAgent
+from agents.log_fetcher_agent import LogFetcherAgent
+from agents.rca_agent import RCAAgent
+from agents.solution_agent import SolutionAgent
+from agents.summarizer_agent import SummarizerAgent
+from config import AppConfig
+from orchestrator.rca_graph import RCAGraphBuilder
+from llm.chat_model import ChatModelFactory
+from llm.prompts import PromptRegistry
+from clients.iomete_client import IometeClient
+from clients.llm_client import LLMClient
+from clients.retrieval_client import RetrievalClient
+from clients.severity_client import SeverityClient
+from clients.splunk_client import SplunkClient
+from clients.storage_client import StorageClient
+from retrieval.faiss_backend import FaissBackend
+from storage.s3_storage import S3Storage
+from orchestrator.engine import RCAEngine
+from telemetry.tracers import LangfuseTracerFactory
+from utils.logging_utils import LoggingUtils
+from utils.time_utils import TimeUtils
 
 
 @dataclass(frozen=True)
@@ -144,17 +144,16 @@ class Main:
             from_time,
             to_time,
         )
-        failed_jobs = runtime.iomete_client.fetch_failed_jobs(from_time=from_time, to_time=to_time)
+        failed_jobs_with_runs = await runtime.iomete_client.fetch_failed_jobs_with_runs_async(
+            from_time=from_time, to_time=to_time
+        )
         results: list[dict[str, object]] = []
         logs_fetched_from_iomete = 0
         logs_fetched_from_splunk = 0
         jobs_failed_due_to_driver_issues = 0
         jobs_without_logs_in_sources = 0
-        for failed_job in failed_jobs:
-            latest_failed_run = runtime.iomete_client.fetch_latest_failed_run(job_id=failed_job.job_id)
-            if latest_failed_run is None:
-                logger.info("hourly_job_skipped job_id=%s reason=no_failed_run", failed_job.job_id)
-                continue
+        
+        for failed_job, latest_failed_run in failed_jobs_with_runs:
             logger.info(
                 "hourly_job_processing job_id=%s job_name=%s run_id=%s",
                 failed_job.job_id,
@@ -222,7 +221,7 @@ class Main:
         logger.info("cli_execution_completed mode=hourly processed=%s", len(results))
         
         output_data = {
-            "Total failed jobs": len(failed_jobs),
+            "Total failed jobs": len(failed_jobs_with_runs),
             "Number of jobs processed": len(results),
             "Logs fetched from IOMETE": logs_fetched_from_iomete,
             "Logs fetched from splunk": logs_fetched_from_splunk,

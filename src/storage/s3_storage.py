@@ -9,8 +9,8 @@ import boto3
 from botocore.client import BaseClient
 from botocore.exceptions import BotoCoreError, ClientError
 
-from src.config import StorageConfig
-from src.errors.exceptions import StorageError
+from config import StorageConfig
+from errors.exceptions import StorageError
 
 
 class S3Storage:

@@ -18,13 +18,13 @@ import argparse
 import json
 from typing import Any
 
-from src.config import AppConfig
-from src.clients.iomete_client import IometeClient
-from src.clients.severity_client import SeverityClient
-from src.clients.splunk_client import SplunkClient
-from src.clients.storage_client import StorageClient
-from src.storage.s3_storage import S3Storage
-from src.utils.logging_utils import LoggingUtils
+from config import AppConfig
+from clients.iomete_client import IometeClient
+from clients.severity_client import SeverityClient
+from clients.splunk_client import SplunkClient
+from clients.storage_client import StorageClient
+from storage.s3_storage import S3Storage
+from utils.logging_utils import LoggingUtils
 
 
 class DebugRun:

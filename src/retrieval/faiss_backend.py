@@ -8,8 +8,8 @@ import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from src.errors.exceptions import RetrievalError
-from src.retrieval.embedding_backend import EmbeddingBackend
+from errors.exceptions import RetrievalError
+from retrieval.embedding_backend import EmbeddingBackend
 
 
 class FaissBackend(EmbeddingBackend):

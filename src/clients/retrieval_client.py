@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.config import RetrievalConfig
-from src.retrieval.embedding_backend import EmbeddingBackend
+from config import RetrievalConfig
+from retrieval.embedding_backend import EmbeddingBackend
 
 
 class RetrievalClient:
