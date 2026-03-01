@@ -5,22 +5,22 @@ from __future__ import annotations
 from typing import Any
 
 from src.agents.base_agent import BaseAgent
-from src.domain.models import AgentResult
-from src.managers.iomete_manager import IometeManager
-from src.managers.splunk_manager import SplunkManager
+from src.schemas.models import AgentResult
+from src.clients.iomete_client import IometeClient
+from src.clients.splunk_client import SplunkClient
 from src.state.rca_state import RCAState
 
 
 class LogFetcherAgent(BaseAgent):
     """Fetches logs from IOMETE first, then Splunk fallback."""
 
-    def __init__(self, iomete_manager: IometeManager, splunk_manager: SplunkManager) -> None:
+    def __init__(self, iomete_client: IometeClient, splunk_client: SplunkClient) -> None:
         """Initialize dependencies."""
         super().__init__(name="log_fetcher")
-        self._iomete_manager = iomete_manager
-        self._splunk_manager = splunk_manager
+        self._iomete_client = iomete_client
+        self._splunk_client = splunk_client
 
-    def run(self, state: RCAState) -> dict[str, Any]:
+    async def run(self, state: RCAState) -> dict[str, Any]:
         """Fetch logs and return partial state update."""
         try:
             self._logger.info(
@@ -28,7 +28,7 @@ class LogFetcherAgent(BaseAgent):
                 state["job_id"],
                 state["run_id"],
             )
-            logs = self._iomete_manager.fetch_logs(state["job_id"], state["run_id"])
+            logs = self._iomete_client.fetch_logs(state["job_id"], state["run_id"])
             source = "iomete"
             if not logs:
                 self._logger.info(
@@ -36,7 +36,7 @@ class LogFetcherAgent(BaseAgent):
                     state["job_id"],
                     state["run_id"],
                 )
-                logs = self._splunk_manager.fetch_logs(state["job_id"], state["run_id"])
+                logs = self._splunk_client.fetch_logs(state["job_id"], state["run_id"])
                 source = "splunk"
             logs = logs or ""
             result = AgentResult(

@@ -13,10 +13,11 @@ from src.utils.time_utils import TimeUtils
 class RCAEngine:
     """Entry controller for the RCA runtime."""
 
-    def __init__(self, graph_builder: Any, callbacks: list[Any] | None = None) -> None:
+    def __init__(self, graph_builder: Any, callbacks: list[Any] | None = None, use_telemetry: bool = True) -> None:
         """Initialize engine dependencies."""
         self._graph_builder = graph_builder
         self._callbacks = callbacks or []
+        self._use_telemetry = use_telemetry
         self._logger = logging.getLogger("src.orchestrator.engine")
 
     async def run(self, job_id: str, job_name: str, run_id: str) -> RCAState:
@@ -56,26 +57,30 @@ class RCAEngine:
         }
         RCAStateValidator.validate(state)
         try:
-            from src.telemetry.tracers import LangfuseTracerFactory
-            from src.config import AppConfig
-            
-            # Create a localized langfuse callback for this execution
-            # using run_id as the session_id to group everything.
-            config = AppConfig.from_env()
-            tracer_factory = LangfuseTracerFactory(config.telemetry)
-            
-            run_callbacks = tracer_factory.create_callbacks(
-                session_id=run_id,
-                trace_name=f"RCA_Job_{job_name}",
-                tags=["rca", "automated"]
-            )
-            
-            callbacks = self._callbacks + run_callbacks
+            callbacks = self._callbacks.copy()
+            if self._use_telemetry:
+                from src.telemetry.tracers import LangfuseTracerFactory
+                from src.config import AppConfig
+                
+                # Create a localized langfuse callback for this execution
+                # using run_id as the session_id to group everything.
+                config = AppConfig.from_env()
+                tracer_factory = LangfuseTracerFactory(config.telemetry)
+                
+                run_callbacks = tracer_factory.create_callbacks(
+                    session_id=run_id,
+                    trace_name=f"RCA_Job_{job_name}",
+                    tags=["rca", "automated"]
+                )
+                callbacks.extend(run_callbacks)
 
             graph = self._graph_builder.build()
             final_state: dict[str, Any] = await graph.ainvoke(
                 state, 
-                config={"callbacks": callbacks}
+                config={
+                    "callbacks": callbacks,
+                    "configurable": {"thread_id": run_id}
+                }
             )
             
             # Final state updates

@@ -6,7 +6,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
-from src.domain.models import AgentResult, ErrorEntry
+from src.schemas.models import AgentResult, ErrorEntry
 from src.errors.exceptions import AgentError
 from src.state.rca_state import RCAState
 
@@ -20,7 +20,7 @@ class BaseAgent(ABC):
         self._logger = logging.getLogger(f"src.agents.{name}")
 
     @abstractmethod
-    def run(self, state: RCAState) -> dict[str, Any]:
+    async def run(self, state: RCAState) -> dict[str, Any]:
         """Execute agent logic and return partial updated state."""
 
     def _append_history(self, state: RCAState, result: AgentResult, partial_state: dict[str, Any] | None = None) -> dict[str, Any]:

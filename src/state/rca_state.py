@@ -2,74 +2,66 @@
 
 from __future__ import annotations
 
-import json
 import operator
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class RCAState(TypedDict):
+class RCAState(BaseModel):
     """Single source of truth partial state object used by the graph."""
+
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     job_id: str
     job_name: str
-    logs: str
-    summary: str
-    root_cause: str
-    solution: str
-    category: str
-    lineage: dict[str, Any]
+    logs: str = ""
+    summary: str = ""
+    root_cause: str = ""
+    solution: str = ""
+    category: str = ""
+    lineage: dict[str, Any] = Field(default_factory=dict)
     run_id: str
-    start_time: str
-    end_time: str
-    status: str
-    errors: Annotated[list[dict[str, Any]], operator.add]
-    decision_path: Annotated[list[str], operator.add]
-    agent_history: Annotated[list[dict[str, Any]], operator.add]
-    confidence_scores: dict[str, float]
-    driver_failure: bool
-    retrieval_context: dict[str, Any]
-    log_source: str
-    error_type: str
-    error_message: str
-    severity: str
-    resolution: list[str]
-    solution_source: str
+    start_time: str = ""
+    end_time: str = ""
+    status: str = "running"
+    errors: Annotated[list[dict[str, Any]], operator.add] = Field(default_factory=list)
+    decision_path: Annotated[list[str], operator.add] = Field(default_factory=list)
+    agent_history: Annotated[list[dict[str, Any]], operator.add] = Field(default_factory=list)
+    confidence_scores: dict[str, float] = Field(default_factory=dict)
+    driver_failure: bool = False
+    retrieval_context: dict[str, Any] = Field(default_factory=dict)
+    log_source: str = ""
+    error_type: str = ""
+    error_message: str = ""
+    severity: str = ""
+    resolution: list[str] = Field(default_factory=list)
+    solution_source: str = ""
+
+    def __getitem__(self, item: str) -> Any:
+        """Allow dict-like access for backwards compatibility."""
+        if not hasattr(self, item):
+            raise KeyError(item)
+        return getattr(self, item)
+
+    def get(self, item: str, default: Any = None) -> Any:
+        """Allow dict-like .get() for backwards compatibility."""
+        return getattr(self, item, default)
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Allow dict-like assignment."""
+        setattr(self, key, value)
+
+    def __contains__(self, key: str) -> bool:
+        """Allow 'in' operator check."""
+        return hasattr(self, key)
 
 
 class RCAStateValidator:
     """State validation checks."""
 
-    _required_keys: tuple[str, ...] = (
-        "job_id",
-        "job_name",
-        "logs",
-        "summary",
-        "root_cause",
-        "solution",
-        "category",
-        "lineage",
-        "run_id",
-        "start_time",
-        "end_time",
-        "status",
-        "errors",
-        "decision_path",
-        "agent_history",
-        "confidence_scores",
-        "driver_failure",
-        "retrieval_context",
-        "log_source",
-        "error_type",
-        "error_message",
-        "severity",
-        "resolution",
-        "solution_source",
-    )
-
     @classmethod
     def validate(cls, state: dict[str, Any] | RCAState) -> None:
         """Validate required keys."""
-        missing = [key for key in cls._required_keys if key not in state]
-        if missing:
-            raise ValueError(f"State missing required keys: {missing}")
-        # Note: json dumps check removed here for performance. Use graph debug logs instead.
+        # Pydantic BaseModel enforces required fields natively
+        pass

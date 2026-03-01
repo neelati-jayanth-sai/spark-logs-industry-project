@@ -6,9 +6,9 @@ from typing import Any
 
 from src.agents.base_agent import BaseAgent
 from src.llm.structured_output import StructuredAgentOutput
-from src.managers.llm_manager import LLMManager
-from src.managers.severity_manager import SeverityManager
-from src.managers.storage_manager import StorageManager
+from src.clients.llm_client import LLMClient
+from src.clients.severity_client import SeverityClient
+from src.clients.storage_client import StorageClient
 from src.state.rca_state import RCAState
 
 
@@ -17,21 +17,21 @@ class SolutionAgent(BaseAgent):
 
     def __init__(
         self,
-        llm_manager: LLMManager,
-        storage_manager: StorageManager,
-        severity_manager: SeverityManager,
+        llm_client: LLMClient,
+        storage_client: StorageClient,
+        severity_client: SeverityClient,
     ) -> None:
         """Initialize dependencies."""
         super().__init__(name="solution")
-        self._llm_manager = llm_manager
-        self._storage_manager = storage_manager
-        self._severity_manager = severity_manager
+        self._llm_client = llm_client
+        self._storage_client = storage_client
+        self._severity_client = severity_client
 
-    def run(self, state: RCAState) -> dict[str, Any]:
+    async def run(self, state: RCAState) -> dict[str, Any]:
         """Generate solution via structured LLM output and return partial update."""
         try:
-            solutions = self._storage_manager.fetch_solutions()
-            result = self._llm_manager.invoke_structured(
+            solutions = self._storage_client.fetch_solutions()
+            result = await self._llm_client.ainvoke_structured(
                 prompt_key="solution",
                 input_payload={
                     "error_type": state.get("error_type", ""),
@@ -43,7 +43,7 @@ class SolutionAgent(BaseAgent):
                 output_schema=StructuredAgentOutput,
             )
             solution = str(result.data.get("solution", ""))
-            severity, case_count = self._severity_manager.classify_severity(
+            severity, case_count = self._severity_client.classify_severity(
                 error_type=state.get("error_type", ""),
                 error_message=state.get("error_message", ""),
                 root_cause=state.get("root_cause", ""),

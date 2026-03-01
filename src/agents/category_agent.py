@@ -6,22 +6,22 @@ from typing import Any
 
 from src.agents.base_agent import BaseAgent
 from src.llm.structured_output import StructuredAgentOutput
-from src.managers.llm_manager import LLMManager
+from src.clients.llm_client import LLMClient
 from src.state.rca_state import RCAState
 
 
 class CategoryAgent(BaseAgent):
     """Classifies failure category."""
 
-    def __init__(self, llm_manager: LLMManager) -> None:
+    def __init__(self, llm_client: LLMClient) -> None:
         """Initialize dependencies."""
         super().__init__(name="category")
-        self._llm_manager = llm_manager
+        self._llm_client = llm_client
 
-    def run(self, state: RCAState) -> dict[str, Any]:
+    async def run(self, state: RCAState) -> dict[str, Any]:
         """Generate category from summary/root cause and return partial state update."""
         try:
-            result = self._llm_manager.invoke_structured(
+            result = await self._llm_client.ainvoke_structured(
                 prompt_key="category",
                 input_payload={"summary": state["summary"], "root_cause": state["root_cause"]},
                 output_schema=StructuredAgentOutput,

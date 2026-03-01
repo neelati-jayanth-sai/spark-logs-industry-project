@@ -19,10 +19,10 @@ import json
 from typing import Any
 
 from src.config import AppConfig
-from src.managers.iomete_manager import IometeManager
-from src.managers.severity_manager import SeverityManager
-from src.managers.splunk_manager import SplunkManager
-from src.managers.storage_manager import StorageManager
+from src.clients.iomete_client import IometeClient
+from src.clients.severity_client import SeverityClient
+from src.clients.splunk_client import SplunkClient
+from src.clients.storage_client import StorageClient
 from src.storage.s3_storage import S3Storage
 from src.utils.logging_utils import LoggingUtils
 
@@ -35,10 +35,10 @@ class DebugRun:
         self._config = AppConfig.from_env()
         LoggingUtils.configure(self._config.logging.level)
         storage = S3Storage(self._config.storage)
-        self._storage_manager = StorageManager(storage)
-        self._iomete_manager = IometeManager(self._config.iomete)
-        self._splunk_manager = SplunkManager(self._config.splunk)
-        self._severity_manager = SeverityManager(self._storage_manager)
+        self._storage_client = StorageClient(storage)
+        self._iomete_client = IometeClient(self._config.iomete)
+        self._splunk_client = SplunkClient(self._config.splunk)
+        self._severity_client = SeverityClient(self._storage_client)
 
     def run(self, args: argparse.Namespace) -> None:
         """Execute selected debug action."""
@@ -59,19 +59,19 @@ class DebugRun:
     def _run_iomete(self, args: argparse.Namespace) -> None:
         """Run IOMETE manager action."""
         if args.action == "failed-jobs":
-            data = self._iomete_manager.fetch_failed_jobs(from_time=args.from_time, to_time=args.to_time)
+            data = self._iomete_client.fetch_failed_jobs(from_time=args.from_time, to_time=args.to_time)
             self._print([{"job_id": item.job_id, "job_name": item.job_name} for item in data])
             return
         if args.action == "latest-failed-run":
-            data = self._iomete_manager.fetch_latest_failed_run(job_id=args.job_id)
+            data = self._iomete_client.fetch_latest_failed_run(job_id=args.job_id)
             self._print({"run_id": data.run_id} if data else None)
             return
         if args.action == "logs":
-            data = self._iomete_manager.fetch_logs(job_id=args.job_id, run_id=args.run_id)
+            data = self._iomete_client.fetch_logs(job_id=args.job_id, run_id=args.run_id)
             self._print({"logs": data})
             return
         if args.action == "driver-failure":
-            data = self._iomete_manager.detect_driver_failure(job_id=args.job_id, run_id=args.run_id)
+            data = self._iomete_client.detect_driver_failure(job_id=args.job_id, run_id=args.run_id)
             self._print({"driver_failure": data})
             return
         raise ValueError(f"Unsupported iomete action: {args.action}")
@@ -79,7 +79,7 @@ class DebugRun:
     def _run_splunk(self, args: argparse.Namespace) -> None:
         """Run Splunk manager action."""
         if args.action == "logs":
-            data = self._splunk_manager.fetch_logs(job_id=args.job_id, run_id=args.run_id)
+            data = self._splunk_client.fetch_logs(job_id=args.job_id, run_id=args.run_id)
             self._print({"logs": data})
             return
         raise ValueError(f"Unsupported splunk action: {args.action}")
@@ -87,24 +87,24 @@ class DebugRun:
     def _run_storage(self, args: argparse.Namespace) -> None:
         """Run Storage manager action."""
         if args.action == "knowledge":
-            self._print({"knowledge": self._storage_manager.fetch_knowledge()})
+            self._print({"knowledge": self._storage_client.fetch_knowledge()})
             return
         if args.action == "solutions":
-            self._print({"solutions": self._storage_manager.fetch_solutions()})
+            self._print({"solutions": self._storage_client.fetch_solutions()})
             return
         if args.action == "severity-csv":
-            raw = self._storage_manager.fetch_severity_cases_csv()
+            raw = self._storage_client.fetch_severity_cases_csv()
             self._print({"bytes": len(raw) if raw else 0})
             return
         if args.action == "lineage":
-            self._print(self._storage_manager.fetch_lineage(job_name=args.job_name))
+            self._print(self._storage_client.fetch_lineage(job_name=args.job_name))
             return
         raise ValueError(f"Unsupported storage action: {args.action}")
 
     def _run_severity(self, args: argparse.Namespace) -> None:
         """Run Severity manager action."""
         if args.action == "classify":
-            severity, count = self._severity_manager.classify_severity(
+            severity, count = self._severity_client.classify_severity(
                 error_type=args.error_type,
                 error_message=args.error_message,
                 root_cause=args.root_cause,

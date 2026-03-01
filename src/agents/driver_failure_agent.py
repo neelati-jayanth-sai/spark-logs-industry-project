@@ -5,20 +5,20 @@ from __future__ import annotations
 from typing import Any
 
 from src.agents.base_agent import BaseAgent
-from src.domain.models import AgentResult
-from src.managers.iomete_manager import IometeManager
+from src.schemas.models import AgentResult
+from src.clients.iomete_client import IometeClient
 from src.state.rca_state import RCAState
 
 
 class DriverFailureAgent(BaseAgent):
     """Detects Spark driver-side failure through IOMETE API without LLM."""
 
-    def __init__(self, iomete_manager: IometeManager) -> None:
+    def __init__(self, iomete_client: IometeClient) -> None:
         """Initialize agent."""
         super().__init__(name="driver_failure")
-        self._iomete_manager = iomete_manager
+        self._iomete_client = iomete_client
 
-    def run(self, state: RCAState) -> dict[str, Any]:
+    async def run(self, state: RCAState) -> dict[str, Any]:
         """Detect driver failure deterministically and return partial state update."""
         try:
             self._logger.info(
@@ -26,7 +26,7 @@ class DriverFailureAgent(BaseAgent):
                 state["job_id"],
                 state["run_id"],
             )
-            failure = self._iomete_manager.detect_driver_failure(
+            failure = self._iomete_client.detect_driver_failure(
                 job_id=state["job_id"],
                 run_id=state["run_id"],
             )

@@ -5,23 +5,23 @@ from __future__ import annotations
 from typing import Any
 
 from src.agents.base_agent import BaseAgent
-from src.domain.models import AgentResult
-from src.managers.storage_manager import StorageManager
+from src.schemas.models import AgentResult
+from src.clients.storage_client import StorageClient
 from src.state.rca_state import RCAState
 
 
 class LineageAgent(BaseAgent):
     """Fetches lineage graph data from storage."""
 
-    def __init__(self, storage_manager: StorageManager) -> None:
+    def __init__(self, storage_client: StorageClient) -> None:
         """Initialize dependencies."""
         super().__init__(name="lineage")
-        self._storage_manager = storage_manager
+        self._storage_client = storage_client
 
-    def run(self, state: RCAState) -> dict[str, Any]:
+    async def run(self, state: RCAState) -> dict[str, Any]:
         """Fetch lineage and return partial state update."""
         try:
-            lineage = self._storage_manager.fetch_lineage(state["job_name"]) or {}
+            lineage = self._storage_client.fetch_lineage(state["job_name"]) or {}
             result = AgentResult(
                 status="success",
                 data={"lineage_found": bool(lineage)},

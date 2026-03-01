@@ -6,9 +6,9 @@ from typing import Any
 
 from src.agents.base_agent import BaseAgent
 from src.llm.structured_output import StructuredAgentOutput
-from src.managers.llm_manager import LLMManager
-from src.managers.retrieval_manager import RetrievalManager
-from src.managers.storage_manager import StorageManager
+from src.clients.llm_client import LLMClient
+from src.clients.retrieval_client import RetrievalClient
+from src.clients.storage_client import StorageClient
 from src.state.rca_state import RCAState
 
 
@@ -16,20 +16,20 @@ class SummarizerAgent(BaseAgent):
     """Summarizes logs with retrieval-grounded context."""
 
     def __init__(
-        self, llm_manager: LLMManager, retrieval_manager: RetrievalManager, storage_manager: StorageManager
+        self, llm_client: LLMClient, retrieval_client: RetrievalClient, storage_client: StorageClient
     ) -> None:
         """Initialize dependencies."""
         super().__init__(name="summarizer")
-        self._llm_manager = llm_manager
-        self._retrieval_manager = retrieval_manager
-        self._storage_manager = storage_manager
+        self._llm_client = llm_client
+        self._retrieval_client = retrieval_client
+        self._storage_client = storage_client
 
-    def run(self, state: RCAState) -> dict[str, Any]:
+    async def run(self, state: RCAState) -> dict[str, Any]:
         """Summarize logs and return partial state update."""
         try:
-            knowledge = self._storage_manager.fetch_knowledge()
-            context = self._retrieval_manager.build_context(state["logs"], knowledge)
-            result = self._llm_manager.invoke_structured(
+            knowledge = self._storage_client.fetch_knowledge()
+            context = self._retrieval_client.build_context(state["logs"], knowledge)
+            result = await self._llm_client.ainvoke_structured(
                 prompt_key="summarizer",
                 input_payload={"logs": state["logs"], "context": context},
                 output_schema=StructuredAgentOutput,

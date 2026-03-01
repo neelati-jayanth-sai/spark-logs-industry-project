@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 
 from src.agents.category_agent import CategoryAgent
 from src.agents.driver_failure_agent import DriverFailureAgent
@@ -15,18 +16,18 @@ from src.agents.rca_agent import RCAAgent
 from src.agents.solution_agent import SolutionAgent
 from src.agents.summarizer_agent import SummarizerAgent
 from src.config import AppConfig
-from src.graph.rca_graph import RCAGraphBuilder
+from src.orchestrator.rca_graph import RCAGraphBuilder
 from src.llm.chat_model import ChatModelFactory
 from src.llm.prompts import PromptRegistry
-from src.managers.iomete_manager import IometeManager
-from src.managers.llm_manager import LLMManager
-from src.managers.retrieval_manager import RetrievalManager
-from src.managers.severity_manager import SeverityManager
-from src.managers.splunk_manager import SplunkManager
-from src.managers.storage_manager import StorageManager
+from src.clients.iomete_client import IometeClient
+from src.clients.llm_client import LLMClient
+from src.clients.retrieval_client import RetrievalClient
+from src.clients.severity_client import SeverityClient
+from src.clients.splunk_client import SplunkClient
+from src.clients.storage_client import StorageClient
 from src.retrieval.faiss_backend import FaissBackend
 from src.storage.s3_storage import S3Storage
-from src.system.engine import RCAEngine
+from src.orchestrator.engine import RCAEngine
 from src.telemetry.tracers import LangfuseTracerFactory
 from src.utils.logging_utils import LoggingUtils
 from src.utils.time_utils import TimeUtils
@@ -38,17 +39,17 @@ class RuntimeComponents:
 
     config: AppConfig
     engine: RCAEngine
-    iomete_manager: IometeManager
+    iomete_client: IometeClient
 
 
 class Main:
     """Bootstrap class for runtime composition."""
 
     @classmethod
-    def build_components(cls) -> RuntimeComponents:
+    def build_components(cls, timestamp: str | None = None) -> RuntimeComponents:
         """Build dependency graph and runtime components."""
         config = AppConfig.from_env()
-        LoggingUtils.configure(config.logging.level)
+        LoggingUtils.configure(config.logging.level, timestamp=timestamp)
         logger = logging.getLogger("src.main")
         logger.info("bootstrap_started")
 
@@ -56,25 +57,25 @@ class Main:
         callbacks = tracer_factory.create_callbacks()
 
         storage = S3Storage(config.storage)
-        storage_manager = StorageManager(storage)
-        severity_manager = SeverityManager(storage_manager)
+        storage_client = StorageClient(storage)
+        severity_client = SeverityClient(storage_client)
 
         retrieval_backend = FaissBackend(config.retrieval.embedding_model)
-        retrieval_manager = RetrievalManager(config.retrieval, retrieval_backend)
+        retrieval_client = RetrievalClient(config.retrieval, retrieval_backend)
 
         model = ChatModelFactory.create(config.llm)
         prompt_registry = PromptRegistry()
-        llm_manager = LLMManager(model=model, prompt_registry=prompt_registry, callbacks=callbacks)
-        iomete_manager = IometeManager(config.iomete)
-        splunk_manager = SplunkManager(config.splunk)
+        llm_client = LLMClient(model=model, prompt_registry=prompt_registry, callbacks=callbacks)
+        iomete_client = IometeClient(config.iomete)
+        splunk_client = SplunkClient(config.splunk)
 
-        log_fetcher = LogFetcherAgent(iomete_manager, splunk_manager)
-        driver_failure = DriverFailureAgent(iomete_manager)
-        lineage = LineageAgent(storage_manager)
-        summarizer = SummarizerAgent(llm_manager, retrieval_manager, storage_manager)
-        category = CategoryAgent(llm_manager)
-        rca = RCAAgent(llm_manager, retrieval_manager, storage_manager)
-        solution = SolutionAgent(llm_manager, storage_manager, severity_manager)
+        log_fetcher = LogFetcherAgent(iomete_client, splunk_client)
+        driver_failure = DriverFailureAgent(iomete_client)
+        lineage = LineageAgent(storage_client)
+        summarizer = SummarizerAgent(llm_client, retrieval_client, storage_client)
+        category = CategoryAgent(llm_client)
+        rca = RCAAgent(llm_client, retrieval_client, storage_client)
+        solution = SolutionAgent(llm_client, storage_client, severity_client)
 
         graph_builder = RCAGraphBuilder(
             log_fetcher_agent=log_fetcher,
@@ -86,21 +87,23 @@ class Main:
             solution_agent=solution,
         )
         logger.info("bootstrap_completed")
-        engine = RCAEngine(graph_builder=graph_builder, callbacks=callbacks)
-        return RuntimeComponents(config=config, engine=engine, iomete_manager=iomete_manager)
+        engine = RCAEngine(graph_builder=graph_builder, callbacks=callbacks, use_telemetry=True)
+        return RuntimeComponents(config=config, engine=engine, iomete_client=iomete_client)
 
     @classmethod
-    def run(cls) -> None:
+    async def run(cls) -> None:
         """Parse args, execute engine, print structured state."""
+        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         parser = argparse.ArgumentParser(description="RCA multi-agent diagnostic platform")
         parser.add_argument("--mode", choices=["single", "hourly"], default="single")
         parser.add_argument("--job-id")
         parser.add_argument("--job-name")
         parser.add_argument("--run-id")
         parser.add_argument("--window-minutes", type=int)
+        parser.add_argument("--output-file", help="Path to save the output JSON", default=f"output_{timestamp_str}.json")
         args = parser.parse_args()
 
-        runtime = cls.build_components()
+        runtime = cls.build_components(timestamp=timestamp_str)
         if args.mode == "single":
             if not args.job_id or not args.job_name or not args.run_id:
                 raise ValueError("--job-id, --job-name, --run-id are required in single mode")
@@ -110,9 +113,26 @@ class Main:
                 args.job_name,
                 args.run_id,
             )
-            result = runtime.engine.run(job_id=args.job_id, job_name=args.job_name, run_id=args.run_id)
+            result = await runtime.engine.run(job_id=args.job_id, job_name=args.job_name, run_id=args.run_id)
             logging.getLogger("src.main").info("cli_execution_completed mode=single status=%s", result["status"])
-            print(json.dumps(result, indent=2))
+            
+            logs_content = result.get("logs", "")
+            if logs_content:
+                logs_filename = f"logs_{args.job_id}_{timestamp_str}.txt"
+                with open(logs_filename, "w") as f:
+                    f.write(logs_content)
+                logging.getLogger("src.main").info("saved raw logs to %s", logs_filename)
+                
+            # Filter out internal orchestration details
+            result.pop("decision_path", None)
+            result.pop("agent_history", None)
+                
+            output_json = json.dumps(result, indent=2)
+            print(output_json)
+            if args.output_file:
+                with open(args.output_file, "w") as f:
+                    f.write(output_json)
+                logging.getLogger("src.main").info("saved output to %s", args.output_file)
             return
 
         window_minutes = args.window_minutes or runtime.config.scheduler.window_minutes
@@ -124,14 +144,14 @@ class Main:
             from_time,
             to_time,
         )
-        failed_jobs = runtime.iomete_manager.fetch_failed_jobs(from_time=from_time, to_time=to_time)
+        failed_jobs = runtime.iomete_client.fetch_failed_jobs(from_time=from_time, to_time=to_time)
         results: list[dict[str, object]] = []
         logs_fetched_from_iomete = 0
         logs_fetched_from_splunk = 0
         jobs_failed_due_to_driver_issues = 0
         jobs_without_logs_in_sources = 0
         for failed_job in failed_jobs:
-            latest_failed_run = runtime.iomete_manager.fetch_latest_failed_run(job_id=failed_job.job_id)
+            latest_failed_run = runtime.iomete_client.fetch_latest_failed_run(job_id=failed_job.job_id)
             if latest_failed_run is None:
                 logger.info("hourly_job_skipped job_id=%s reason=no_failed_run", failed_job.job_id)
                 continue
@@ -142,11 +162,19 @@ class Main:
                 latest_failed_run.run_id,
             )
             try:
-                state = runtime.engine.run(
+                state = await runtime.engine.run(
                     job_id=failed_job.job_id,
                     job_name=failed_job.job_name,
                     run_id=latest_failed_run.run_id,
                 )
+                
+                logs_content = state.get("logs", "")
+                if logs_content:
+                    logs_filename = f"logs_{failed_job.job_id}_{timestamp_str}.txt"
+                    with open(logs_filename, "w") as f:
+                        f.write(logs_content)
+                    logger.info("saved raw logs to %s", logs_filename)
+
                 if state["log_source"] == "iomete":
                     logs_fetched_from_iomete += 1
                 elif state["log_source"] == "splunk":
@@ -192,21 +220,25 @@ class Main:
                     }
                 )
         logger.info("cli_execution_completed mode=hourly processed=%s", len(results))
-        print(
-            json.dumps(
-                {
-                    "Total failed jobs": len(failed_jobs),
-                    "Number of jobs processed": len(results),
-                    "Logs fetched from IOMETE": logs_fetched_from_iomete,
-                    "Logs fetched from splunk": logs_fetched_from_splunk,
-                    "Jobs failed due to driver issues": jobs_failed_due_to_driver_issues,
-                    "Number of jobs whose logs are not available in iomete or splunk": jobs_without_logs_in_sources,
-                    "results": results,
-                },
-                indent=2,
-            )
-        )
+        
+        output_data = {
+            "Total failed jobs": len(failed_jobs),
+            "Number of jobs processed": len(results),
+            "Logs fetched from IOMETE": logs_fetched_from_iomete,
+            "Logs fetched from splunk": logs_fetched_from_splunk,
+            "Jobs failed due to driver issues": jobs_failed_due_to_driver_issues,
+            "Number of jobs whose logs are not available in iomete or splunk": jobs_without_logs_in_sources,
+            "results": results,
+        }
+        output_json = json.dumps(output_data, indent=2)
+        print(output_json)
+        
+        if args.output_file:
+            with open(args.output_file, "w") as f:
+                f.write(output_json)
+            logger.info("saved output to %s", args.output_file)
 
 
 if __name__ == "__main__":
-    Main.run()
+    import asyncio
+    asyncio.run(Main.run())
