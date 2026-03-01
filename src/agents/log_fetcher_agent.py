@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from src.agents.base_agent import BaseAgent
 from src.domain.models import AgentResult
 from src.managers.iomete_manager import IometeManager
 from src.managers.splunk_manager import SplunkManager
-from src.state.rca_state import RCAState, RCAStateFactory
+from src.state.rca_state import RCAState
 
 
 class LogFetcherAgent(BaseAgent):
@@ -18,8 +20,8 @@ class LogFetcherAgent(BaseAgent):
         self._iomete_manager = iomete_manager
         self._splunk_manager = splunk_manager
 
-    def run(self, state: RCAState) -> RCAState:
-        """Fetch logs and update state."""
+    def run(self, state: RCAState) -> dict[str, Any]:
+        """Fetch logs and return partial state update."""
         try:
             self._logger.info(
                 "log_fetch_started job_id=%s run_id=%s source_order=iomete_then_splunk",
@@ -51,11 +53,11 @@ class LogFetcherAgent(BaseAgent):
                 source if logs else "none",
                 False,
             )
-            updated = RCAStateFactory.clone_with_updates(
-                state,
-                {"logs": logs, "log_source": source if logs else "none"},
-            )
-            return self._append_history(updated, result)
+            partial_update = {
+                "logs": logs, 
+                "log_source": source if logs else "none"
+            }
+            return self._append_history(state, result, partial_state=partial_update)
         except Exception as error:  # noqa: BLE001
             wrapped = self._wrap_exception("failed to fetch logs", error)
             return self._attach_error(state, wrapped)

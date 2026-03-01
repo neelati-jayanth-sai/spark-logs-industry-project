@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from src.agents.base_agent import BaseAgent
 from src.domain.models import AgentResult
 from src.managers.iomete_manager import IometeManager
-from src.state.rca_state import RCAState, RCAStateFactory
+from src.state.rca_state import RCAState
 
 
 class DriverFailureAgent(BaseAgent):
@@ -16,8 +18,8 @@ class DriverFailureAgent(BaseAgent):
         super().__init__(name="driver_failure")
         self._iomete_manager = iomete_manager
 
-    def run(self, state: RCAState) -> RCAState:
-        """Detect driver failure deterministically."""
+    def run(self, state: RCAState) -> dict[str, Any]:
+        """Detect driver failure deterministically and return partial state update."""
         try:
             self._logger.info(
                 "driver_failure_check_started job_id=%s run_id=%s",
@@ -40,8 +42,8 @@ class DriverFailureAgent(BaseAgent):
                 confidence=1.0,
                 meta={},
             )
-            updated = RCAStateFactory.clone_with_updates(state, {"driver_failure": failure})
-            return self._append_history(updated, result)
+            partial_update = {"driver_failure": failure}
+            return self._append_history(state, result, partial_state=partial_update)
         except Exception as error:  # noqa: BLE001
             wrapped = self._wrap_exception("failed to detect driver failure", error)
             return self._attach_error(state, wrapped)
